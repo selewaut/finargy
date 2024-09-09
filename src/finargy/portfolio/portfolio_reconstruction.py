@@ -113,4 +113,5 @@ if __name__ == "__main__":
     master_df = get_all_symbols(client, symbol_dates)
 
     # save to csv
-    master_df.to_csv("master_df.csv", index=False)
+    master_df.to_csv("data/historical_prices.csv", index=False)
+    account_movements_df.to_csv("data/portfolio/account_movements_df.csv", index=False)
