@@ -1,6 +1,6 @@
 from pytest import param
 from finargy.api.client import InvertirOnlineAPI
-from datetime import datetime
+import datetime
 
 
 # GET /api/v2/portafolio/{pais}
@@ -17,41 +17,48 @@ def get_account_summary(client: InvertirOnlineAPI):
 
 # GET /api/v2/operaciones
 def get_account_movements(
-    client: InvertirOnlineAPI, date_start: datetime, date_end: datetime = None, **kwargs
+    client: InvertirOnlineAPI,
+    date_start: datetime.datetime,
+    date_end: datetime.datetime = None,
+    **kwargs,
 ):
     """Retrieve account finished movements data."""
     if date_start is None:
         raise ValueError("date_start is required.")
 
     if date_end is None:
-        date_end = datetime.now().date()
+        date_end = datetime.datetime.now().date()
 
     # convert to compatible format
-    if isinstance(date_start, datetime):
+    if isinstance(date_start, datetime.datetime):
         date_start = date_start.strftime("%Y-%m-%d")
-    if isinstance(date_end, datetime):
+    if isinstance(date_end, datetime.datetime):
         date_end = date_end.strftime("%Y-%m-%d")
-    
+
     params = {"fechaDesde": date_start, "fechaHasta": date_end}
 
     params = {**params, **kwargs}
-    return client._request(
-        "GET",
-        "operaciones",
-        params=params
-    )
+    return client._request("GET", "operaciones", params=params)
 
 
 # GET /api/v2/operaciones
 
 
 def get_account_movements_finished(
-    client: InvertirOnlineAPI, date_start: datetime, date_end: datetime = None
+    client: InvertirOnlineAPI,
+    date_start: datetime.datetime,
+    date_end: datetime.datetime = None,
 ):
+    """
+    Get account movements finished.
+    args:
+        client: InvertirOnlineAPI: API client
+        date_start: datetime.datetime
+        date_end: datetime.datetime
+    """
     """Retrieve account finished movements data."""
-    return get_account_movements(
-        client, date_start, date_end, estado="terminadas"
-    )
+    return get_account_movements(client, date_start, date_end, estado="terminadas")
+
 
 # GET /api/v2/operaciones/{numero}
 def get_operation(client: InvertirOnlineAPI, number=None):
