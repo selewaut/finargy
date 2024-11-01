@@ -94,13 +94,18 @@ def get_all_symbols(client: InvertirOnlineAPI, symbol_dates: pd.DataFrame):
     return master_df
 
 
-if __name__ == "__main__":
-    # create a calendar dataframe
-    start_date = datetime.datetime(2021, 1, 1)
-    calendar_df = create_calendar_df(start_date)
+def portfolio_reconstruction(
+    client: InvertirOnlineAPI,
+    start_date: datetime.datetime = None,
+    end_date: datetime.datetime = None,
+):
 
-    # create a client
-    client = InvertirOnlineAPI()
+    if start_date is None:
+        start_date = datetime.datetime(2021, 1, 1)
+        print("Start date is None, using 2021-01-01.")
+    if end_date is None:
+        end_date = datetime.datetime.now()
+        print("End date is None, using today's date.")
 
     account_movements = get_account_movements_finished(
         client=client, date_start=start_date
@@ -112,6 +117,54 @@ if __name__ == "__main__":
     # consolidate movements
     master_df = get_all_symbols(client, symbol_dates)
 
-    # save to csv
-    master_df.to_csv("data/historical_prices.csv", index=False)
-    account_movements_df.to_csv("data/portfolio/account_movements_df.csv", index=False)
+    return master_df, account_movements_df
+
+
+if __name__ == "__main__":
+    # create a client
+    client = InvertirOnlineAPI()
+
+    historical_prices_path = "data/historical_prices.csv"
+    account_movements_path = "data/portfolio/account_movements_df.csv"
+
+    # check if file exists
+    try:
+        master_df = pd.read_csv(historical_prices_path)
+        account_movements_df = pd.read_csv(account_movements_path)
+
+        # Get the max date from the existing data
+        max_date_historical = pd.to_datetime(master_df["fechaHora_date"]).max()
+        max_date_movements = pd.to_datetime(account_movements_df["fecha_orden"]).max()
+
+        # Use the latest date from both datasets as the new start date
+        max_historical_date = max(max_date_historical, max_date_movements)
+        incremental_date = min(max_historical_date, max_date_movements)
+
+        if max_historical_date.date() < datetime.datetime.now().date():
+            print(f"Downloading incremental data from {incremental_date}")
+
+            # Download incremental data
+            master_df_incr, account_movements_df_incr = portfolio_reconstruction(
+                client=client,
+                start_date=incremental_date,
+            )
+            combined_master_df = pd.concat([master_df, master_df_incr])
+            combined_account_movements_df = pd.concat(
+                [account_movements_df, account_movements_df_incr]
+            )
+            # Save the combined data
+            combined_master_df.to_csv(historical_prices_path, index=False)
+            combined_account_movements_df.to_csv(account_movements_path, index=False)
+        else:
+            print("Data is already up to date.")
+    except FileNotFoundError:
+        # create a client
+        client = InvertirOnlineAPI()
+        start_date = datetime.datetime(2021, 1, 1)
+        print(f"No price local data available, downloading from {start_date}")
+        master_df, account_movements_df = portfolio_reconstruction(
+            client=client,
+            start_date=start_date,
+        )
+        master_df.to_csv(historical_prices_path, index=False)
+        account_movements_df.to_csv(account_movements_path, index=False)
