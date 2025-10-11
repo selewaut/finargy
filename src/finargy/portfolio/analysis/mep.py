@@ -29,29 +29,29 @@ def get_mep_dollar_history(
         date_end=date_end,
     )
 
-    local_symbol_df = get_historical_series(local_symbol_history, "fechaHora")
+    local_symbol_df = get_historical_series(local_symbol_history, "date")
 
-    dollar_symbol_df = get_historical_series(dollar_symbol_history, "fechaHora")
+    dollar_symbol_df = get_historical_series(dollar_symbol_history, "date")
 
     join_suffixes = (f"_{symbol}", f"_{dollar_symbol}")
 
     # select only needed columns
-    local_symbol_df = local_symbol_df[["fechaHora_date", "ultimoPrecio"]]
-    dollar_symbol_df = dollar_symbol_df[["fechaHora_date", "ultimoPrecio"]]
+    local_symbol_df = local_symbol_df[["date", "price"]]
+    dollar_symbol_df = dollar_symbol_df[["date", "price"]]
 
     dolar_mep = pd.merge(
         local_symbol_df,
         dollar_symbol_df,
-        on="fechaHora_date",
+        on="date",
         how="inner",
         suffixes=join_suffixes,
     )
 
     dolar_mep["dollar_mep"] = (
-        dolar_mep[f"ultimoPrecio_{symbol}"] / dolar_mep[f"ultimoPrecio_{dollar_symbol}"]
+        dolar_mep[f"price_{symbol}"] / dolar_mep[f"price_{dollar_symbol}"]
     )
 
-    return dolar_mep[["fechaHora_date", "dollar_mep"]]
+    return dolar_mep[["date", "dollar_mep"]]
 
 
 if __name__ == "__main__":

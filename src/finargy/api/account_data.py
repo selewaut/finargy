@@ -64,3 +64,11 @@ def get_account_movements_finished(
 def get_operation(client: InvertirOnlineAPI, number=None):
     """Retrieve operation data."""
     return client._request("GET", f"operaciones/{number}")
+
+
+# api/v2/Asesores/Operaciones/Boleto/:idClienteAsesorado/:numeroOperacion
+def get_operation_ticket(client: InvertirOnlineAPI, customer_id, operation_number):
+    """Retrieve advisor operation data."""
+    return client._request(
+        "GET", f"Asesores/Operaciones/Boleto/{customer_id}/{operation_number}"
+    )

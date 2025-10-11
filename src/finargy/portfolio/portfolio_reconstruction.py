@@ -8,6 +8,41 @@ from finargy.api.market_data.symbol_data import get_symbol_history
 from finargy.api.account_data import get_account_movements_finished
 from finargy.data_processing.utils import get_end_of_day, parse_date_df
 
+COLUMNS_TRANSLATE = {
+    "numero": "order_number",
+    "fechaOrden": "order_date",
+    "tipo": "type",
+    "estado": "status",
+    "mercado": "market",
+    "simbolo": "ticker",
+    "cantidad": "quantity",
+    "monto": "amount",
+    "modalidad": "modality",
+    "precio": "price",
+    "fechaOperada": "execution_date",
+    "cantidadOperada": "executed_quantity",
+    "precioOperado": "executed_price",
+    "montoOperado": "executed_amount",
+    "plazo": "term",
+}
+
+DATE_COLS = ["order_date", "execution_date"]
+
+
+ADJUSTMENTS_COLUMNS = {
+    "In/out": "in_out",
+    "Comitente": "account_nbr",
+    "Mercado": "market",
+    "Especie": "symbol",
+    "Broker": "broker",
+    "Cantidad": "quantity",
+    "Comitente contraparte": "counterpart_account",
+    "Tipo": "type",
+    "Fecha": "operation_date",
+    "Estado": "status",
+    "Comisión": "commission",
+}
+
 
 def create_calendar_df(
     start_date: datetime.datetime, end_date: datetime.datetime = None
@@ -26,36 +61,77 @@ def create_calendar_df(
     return calendar_df
 
 
-def parse_movements(movements_resp):
+def parse_movements(movements_resp: dict) -> pd.DataFrame:
     """Parse a DataFrame with movements data."""
     movements_df = pd.DataFrame(movements_resp)
-    # convert fechaOrden to date, first remove . character
-    date_cols = ["fechaOrden", "fechaOperada"]
+    movements_df = movements_df.rename(columns=COLUMNS_TRANSLATE)
 
-    # apply
+    # parse DATE_COLS
+    for col in DATE_COLS:
+        movements_df[col] = movements_df[col].str.split(".").str[0]
+        movements_df[col] = pd.to_datetime(movements_df[col])
 
-    movements_df["fechaOrden"] = movements_df["fechaOrden"].str.split(".").str[0]
-    movements_df["fechaOrden"] = pd.to_datetime(movements_df["fechaOrden"])
-
-    movements_df["fechaOperada"] = movements_df["fechaOperada"].str.split(".").str[0]
-    movements_df["fechaOperada"] = pd.to_datetime(movements_df["fechaOperada"])
-
-    movements_df["fecha_orden"] = movements_df["fechaOrden"].dt.date
-    movements_df["fecha_operada"] = movements_df["fechaOperada"].dt.date
+    # quantity to integer
+    movements_df["quantity"] = movements_df["quantity"].fillna(0).astype("int")
+    movements_df["executed_quantity"] = (
+        movements_df["executed_quantity"].fillna(0).astype("int")
+    )
 
     return movements_df
 
 
+def parse_adjustments(df):
+    """Parse adjustments DataFrame with standardized column names."""
+    df = df.rename(columns=ADJUSTMENTS_COLUMNS)
+
+    # Convert date column
+    df["operation_date"] = pd.to_datetime(df["operation_date"], format="%d/%m/%Y")
+
+    # Convert quantity to numeric
+    df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
+
+    # Clean commission column (remove $ and convert to numeric)
+    df["commission"] = df["commission"].str.replace("$", "").str.strip()
+    df["commission"] = pd.to_numeric(df["commission"], errors="coerce")
+
+    return df
+
+
 def get_symbol_min_max_dates(movements_df):
     # get min dates for each symbol that is of type 'Compra'
-    min_max_dates = (
-        movements_df[movements_df["tipo"] == "Compra"]
-        .groupby(["simbolo", "mercado"])["fecha_orden"]
+    min_max_dates_df = (
+        movements_df.groupby(["ticker", "market"])["execution_date"]
         .agg(["min", "max"])
         .reset_index()
     )
-    min_max_dates
-    return min_max_dates
+
+    return min_max_dates_df
+
+
+def parse_symbol_data(symbol_response):
+    symbol_df = pd.DataFrame(symbol_response)
+    symbol_df = parse_date_df(symbol_df, "fechaHora")
+    symbol_df = get_end_of_day(symbol_df, "fechaHora")
+    # get only the columns we need
+    symbol_df = symbol_df[["fechaHora_date", "ultimoPrecio"]]
+
+    return symbol_df
+
+
+def get_symbol(
+    symbol: str,
+    client: InvertirOnlineAPI,
+    start_date: datetime.datetime,
+    end_date: datetime.datetime,
+):
+    symbol_response = get_symbol_history(
+        client=client, symbol=symbol, date_start=start_date, date_end=end_date
+    )
+    symbol_df = parse_symbol_data(symbol_response)
+    symbol_df = get_end_of_day(symbol_df, "fechaHora")
+    symbol_df = symbol_df[["date", "price"]]
+
+    return symbol_df
 
 
 def get_all_symbols(client: InvertirOnlineAPI, symbol_dates: pd.DataFrame):
@@ -63,8 +139,8 @@ def get_all_symbols(client: InvertirOnlineAPI, symbol_dates: pd.DataFrame):
     symbol_data = {}
     # add progress bar
     for i, row in tqdm.tqdm(symbol_dates.iterrows()):
-        symbol = row["simbolo"]
-        mercado = row["mercado"]
+        symbol = row["ticker"]
+        mercado = row["market"]
         symbol_response = get_symbol_history(
             client=client,
             symbol=symbol,
@@ -72,11 +148,16 @@ def get_all_symbols(client: InvertirOnlineAPI, symbol_dates: pd.DataFrame):
             date_end=datetime.datetime.now(),
         )
 
+        # if no data (empty list) continue
+        if not symbol_response:
+            print(f"Invalid data for symbol {symbol} in market {mercado}")
+            continue
+
         symbol_df = pd.DataFrame(symbol_response)
         symbol_df = parse_date_df(symbol_df, "fechaHora")
         symbol_df = get_end_of_day(symbol_df, "fechaHora")
         # get only the columns we need
-        symbol_df = symbol_df[["fechaHora_date", "ultimoPrecio"]]
+        symbol_df = symbol_df[["fechaHora", "ultimoPrecio"]]
         symbol_data[symbol] = symbol_df
 
     # concat all symbol data into a single dataframe
@@ -147,6 +228,7 @@ if __name__ == "__main__":
             master_df_incr, account_movements_df_incr = portfolio_reconstruction(
                 client=client,
                 start_date=incremental_date,
+                end_date=datetime.datetime.now().date(),
             )
             combined_master_df = pd.concat([master_df, master_df_incr])
             combined_account_movements_df = pd.concat(
@@ -161,10 +243,12 @@ if __name__ == "__main__":
         # create a client
         client = InvertirOnlineAPI()
         start_date = datetime.datetime(2021, 1, 1)
+        end_date = datetime.datetime.now().date()
         print(f"No price local data available, downloading from {start_date}")
         master_df, account_movements_df = portfolio_reconstruction(
             client=client,
             start_date=start_date,
+            end_date=datetime.datetime.now().date(),
         )
         master_df.to_csv(historical_prices_path, index=False)
         account_movements_df.to_csv(account_movements_path, index=False)
