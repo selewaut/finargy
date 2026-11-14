@@ -130,4 +130,7 @@ dmypy.json
 images/*
 .env
 *.csv
-/data
+/data/*
+!/data/.gitkeep
+!/data/portfolio/
+!/data/portfolio/.gitkeep

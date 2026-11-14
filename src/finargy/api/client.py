@@ -14,7 +14,7 @@ class InvertirOnlineAPI:
     def __init__(self, base_url=BASE_URL, token_url=TOKEN_URL):
         # load environment variables
         load_dotenv()
-        self.username = os.getenv("USER")
+        self.username = os.getenv("USERNAME")
         self.password = os.getenv("PASSWORD")
         self.base_url = base_url
         self.token_url = token_url
