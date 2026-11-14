@@ -6,11 +6,19 @@ Financial data analysis and market API connector for invertironline
 
 `finargy` is a Python package that provides tools for financial data analysis and API integration with the InvertirOnline trading platform. It allows you to fetch market data, manage portfolios, and analyze investments.
 
+## Planning docs
+
+Durable documentation (product specs and ADRs) lives in `docs/`; execution
+planning (epics, features, tasks) lives in `planning/`. Work flows
+`product-spec → epic → task`, each a markdown file with YAML frontmatter. Start at
+[`docs/README.md`](docs/README.md) and [`planning/README.md`](planning/README.md);
+agents should follow [`AGENTS.md`](AGENTS.md).
+
 ## Installation
 
 1. Clone the repository:
 ```sh
-git clone https://github.com/your-username/finargy.git
+git clone https://github.com/selewaut/finargy.git
 cd finargy
 ```
 
