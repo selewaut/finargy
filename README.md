@@ -14,24 +14,25 @@ git clone https://github.com/your-username/finargy.git
 cd finargy
 ```
 
-2. Create and activate virtual environment
-- Linux:
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
+
+3. Create the virtual environment and install finargy in editable mode with its development dependencies:
 ```sh
-python3 -m venv .venv
+uv sync --extra dev
+```
+This creates `.venv` using the Python version pinned in `.python-version` and installs the locked dependencies from `uv.lock`.
+
+4. Activate the virtual environment (optional, `uv run <command>` works without activation):
+- Linux/macOS:
+```sh
 source .venv/bin/activate
 ```
 - Windows:
 ```bat
-python -m venv .venv
 .venv\Scripts\activate
 ```
 
-3. Install requirements and finargy package from source:
-```sh
-pip install -r requirements.txt
-pip install -e .
-```
-Remove the `-e` flag if you don't want to install the package in editable mode.
+To add or update a dependency, use `uv add <package>` (or `uv add --dev <package>`). This updates `pyproject.toml` and `uv.lock` automatically.
 
 ## Configuration
 
